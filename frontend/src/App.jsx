@@ -20,6 +20,20 @@ const SnakeGame = () => {
   const canvasRef = useRef(null);
   const gameLoopRef = useRef(null);
   const touchStartRef = useRef({ x: 0, y: 0 });
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
+  const playSound = (soundName) => {
+    if (!soundEnabled) return;
+
+    try {
+      const audio = new Audio(`/sounds/${soundName}.mp3`);
+      audio.volume = 0.3;
+      audio.play().catch(err => console.log('Error:', err));
+    } catch (error) {
+      console.log('Error:', error);
+    }
+  };
+
 
   // Загрузка лидербордо
   useEffect(() => {
@@ -28,6 +42,7 @@ const SnakeGame = () => {
       setLeaderboard(scores.slice(0, 10));
     }
   }, []);
+
 
   // Фиксируем body при игре
   useEffect(() => {
@@ -48,6 +63,8 @@ const SnakeGame = () => {
   // Клавиатура
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (gameState === 'registration') return;
+
       if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd'].includes(e.key)) return;
       e.preventDefault();
 
@@ -70,7 +87,7 @@ const SnakeGame = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [direction]);
+  }, [direction, gameState]);
 
   // Свайпы
   const handleTouchStart = (e) => {
@@ -111,11 +128,13 @@ const SnakeGame = () => {
         head[1] += nextDirection[1];
 
         if (head[0] < 0 || head[0] >= GRID_SIZE || head[1] < 0 || head[1] >= GRID_SIZE) {
+          playSound('gameover');
           setGameState('gameOver');
           return prevSnake;
         }
 
         if (prevSnake.some((segment) => segment[0] === head[0] && segment[1] === head[1])) {
+          playSound('gameover');
           setGameState('gameOver');
           return prevSnake;
         }
@@ -124,6 +143,7 @@ const SnakeGame = () => {
 
         if (head[0] === food[0] && head[1] === food[1]) {
           setScore((s) => s + 10);
+          playSound('eat');
           let newFood;
           do {
             newFood = [Math.floor(Math.random() * GRID_SIZE), Math.floor(Math.random() * GRID_SIZE)];
@@ -383,14 +403,48 @@ const SnakeGame = () => {
           gap: '16px',
           alignItems: 'center',
         }}>
+
           {gameState === 'playing' && (
             <div style={{
-              fontSize: '24px',
-              fontWeight: '700',
-              color: '#406832',
-              textAlign: 'center',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              width: '100%',
+              maxWidth: '400px',
             }}>
-              Score: <span style={{ color: '#a71255' }}>{score}</span>
+              <div style={{
+                fontSize: '24px',
+                fontWeight: '700',
+                color: '#406832',
+              }}>
+                Score: <span style={{ color: '#a71255' }}>{score}</span>
+              </div>
+
+              <button
+                onClick={() => setSoundEnabled(!soundEnabled)}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '18px',
+                  background: soundEnabled ? '#a71255' : '#ccc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  fontWeight: '600',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.transform = 'scale(1.1)';
+                  e.target.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.2)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.transform = 'scale(1)';
+                  e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                }}
+              >
+                {soundEnabled ? '🔊 Sound ON' : '🔇 Sound OFF'}
+              </button>
             </div>
           )}
 
