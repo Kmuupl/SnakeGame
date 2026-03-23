@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RotateCcw, Play, Trophy } from 'lucide-react';
+import { RotateCcw, Trophy, Play } from 'lucide-react';
+
+import './App.css';
 
 const SnakeGame = () => {
   const GRID_SIZE = 20;
@@ -7,7 +9,7 @@ const SnakeGame = () => {
   const CELL_SIZE = CANVAS_SIZE / GRID_SIZE;
   const GAME_SPEED = 100;
 
-  const [gameState, setGameState] = useState('registration'); // registration, playing, gameOver
+  const [gameState, setGameState] = useState('registration');
   const [playerName, setPlayerName] = useState('');
   const [snake, setSnake] = useState([[10, 10]]);
   const [food, setFood] = useState([15, 15]);
@@ -17,8 +19,9 @@ const SnakeGame = () => {
   const [leaderboard, setLeaderboard] = useState([]);
   const canvasRef = useRef(null);
   const gameLoopRef = useRef(null);
+  const touchStartRef = useRef({ x: 0, y: 0 });
 
-  // Загружаем таблицу рекордов при старте
+  // Загрузка лидербордо
   useEffect(() => {
     const scores = JSON.parse(localStorage.getItem('snakeScores')) || [];
     if (scores.length > 0) {
@@ -26,7 +29,23 @@ const SnakeGame = () => {
     }
   }, []);
 
-  // Обработка клавиш
+  // Фиксируем body при игре
+  useEffect(() => {
+    if (gameState === 'playing') {
+      document.body.style.overflow = 'hidden';
+      document.body.style.height = '100vh';
+    } else {
+      document.body.style.overflow = 'auto';
+      document.body.style.height = 'auto';
+    }
+
+    return () => {
+      document.body.style.overflow = 'auto';
+      document.body.style.height = 'auto';
+    };
+  }, [gameState]);
+
+  // Клавиатура
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd'].includes(e.key)) return;
@@ -53,7 +72,34 @@ const SnakeGame = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [direction]);
 
-  // Game Loop
+  // Свайпы
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleTouchEnd = (e) => {
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+    const minDistance = 15;
+
+    if (Math.abs(deltaX) > minDistance || Math.abs(deltaY) > minDistance) {
+      let newDir;
+
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        newDir = deltaX > 0 ? [1, 0] : [-1, 0];
+      } else {
+        newDir = deltaY > 0 ? [0, 1] : [0, -1];
+      }
+
+      if (!(direction[0] === -newDir[0] && direction[1] === -newDir[1])) {
+        setNextDirection(newDir);
+      }
+    }
+  };
+
+  // GAME LOOP - ПРАВИЛЬНО В USEFFECT!
   useEffect(() => {
     if (gameState !== 'playing') return;
 
@@ -93,18 +139,16 @@ const SnakeGame = () => {
     return () => clearInterval(gameLoopRef.current);
   }, [gameState, nextDirection, food]);
 
-  // Canvas Drawing
+  // Рисование Canvas
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
-    
-    // Background
+
     ctx.fillStyle = '#efd7fe';
     ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-    // Grid
     ctx.strokeStyle = '#d4b5e0';
     ctx.lineWidth = 0.5;
     for (let i = 0; i <= GRID_SIZE; i++) {
@@ -119,13 +163,11 @@ const SnakeGame = () => {
       ctx.stroke();
     }
 
-    // Food
     ctx.fillStyle = '#a71255';
     ctx.beginPath();
     ctx.arc(food[0] * CELL_SIZE + CELL_SIZE / 2, food[1] * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE / 2 - 2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Snake
     snake.forEach((segment, index) => {
       ctx.fillStyle = index === 0 ? '#406832' : '#69a1b3';
       ctx.fillRect(segment[0] * CELL_SIZE + 1, segment[1] * CELL_SIZE + 1, CELL_SIZE - 2, CELL_SIZE - 2);
@@ -146,20 +188,18 @@ const SnakeGame = () => {
   };
 
   const resetGame = () => {
-    // Сохраняем score в localStorage
     if (playerName.trim()) {
       const scores = JSON.parse(localStorage.getItem('snakeScores')) || [];
       scores.push({ name: playerName, score, rank: scores.length + 1 });
       scores.sort((a, b) => b.score - a.score);
-      
+
       scores.forEach((s, i) => s.rank = i + 1);
-      
+
       localStorage.setItem('snakeScores', JSON.stringify(scores));
       setLeaderboard(scores.slice(0, 10));
     }
 
-    setGameState('registration');
-    setPlayerName('');
+    setGameState('playing');
     setSnake([[10, 10]]);
     setFood([15, 15]);
     setDirection([1, 0]);
@@ -167,18 +207,22 @@ const SnakeGame = () => {
     setScore(0);
   };
 
-  // REGISTRATION SCREEN
   if (gameState === 'registration') {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #efd7fe 0%, #cf9bd5 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '20px',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-      }}>
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        style={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #efd7fe 0%, #cf9bd5 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          padding: '0',
+          fontFamily: 'system-ui, -apple-system, sans-serif',
+        }}
+      >
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -187,7 +231,6 @@ const SnakeGame = () => {
           maxWidth: '500px',
           width: '100%',
         }}>
-          {/* Title */}
           <div style={{ textAlign: 'center' }}>
             <h1 style={{
               fontSize: '56px',
@@ -208,7 +251,6 @@ const SnakeGame = () => {
             </p>
           </div>
 
-          {/* Input */}
           <input
             type="text"
             value={playerName}
@@ -237,7 +279,6 @@ const SnakeGame = () => {
             }}
           />
 
-          {/* Button */}
           <button
             onClick={startGame}
             style={{
@@ -264,7 +305,6 @@ const SnakeGame = () => {
             START GAME
           </button>
 
-          {/* Leaderboard Preview */}
           {leaderboard.length > 0 && (
             <div style={{
               width: '100%',
@@ -313,17 +353,21 @@ const SnakeGame = () => {
     );
   }
 
-  // GAME SCREEN
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #efd7fe 0%, #cf9bd5 100%)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-    }}>
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #efd7fe 0%, #cf9bd5 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+        padding: '0',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+      }}
+    >
       <div style={{
         display: 'flex',
         flexDirection: gameState === 'gameOver' ? 'column' : 'row',
@@ -333,7 +377,6 @@ const SnakeGame = () => {
         alignItems: 'center',
         justifyContent: 'center',
       }}>
-        {/* Canvas */}
         <div style={{
           display: 'flex',
           flexDirection: 'column',
@@ -350,7 +393,7 @@ const SnakeGame = () => {
               Score: <span style={{ color: '#a71255' }}>{score}</span>
             </div>
           )}
-          
+
           <canvas
             ref={canvasRef}
             width={CANVAS_SIZE}
@@ -359,6 +402,7 @@ const SnakeGame = () => {
               border: '3px solid #406832',
               borderRadius: '12px',
               boxShadow: '0 8px 30px rgba(0, 0, 0, 0.15)',
+              touchAction: 'none',
             }}
           />
 
@@ -369,12 +413,11 @@ const SnakeGame = () => {
               textAlign: 'center',
               margin: '0',
             }}>
-              Use Arrow Keys or WASD to move
+              Swipe to move • Arrow Keys / WASD on desktop
             </p>
           )}
         </div>
 
-        {/* Game Over / Info Panel */}
         {gameState === 'gameOver' && (
           <div style={{
             display: 'flex',
@@ -444,10 +487,9 @@ const SnakeGame = () => {
               }}
             >
               <RotateCcw size={18} />
-              Back to Menu
+              Play Again
             </button>
 
-            {/* Leaderboard in Game Over */}
             {leaderboard.length > 0 && (
               <div style={{
                 width: '100%',
