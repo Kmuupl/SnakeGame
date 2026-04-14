@@ -6,7 +6,7 @@
 ## 🏗️ Architecture
 - Frontend: React + Vite + Canvas
 - Backend: Spring Boot (Java)
-- Database: Azure MySQL
+- Database: Azure MySQL (?)
 - Cache: Azure Redis
 - Deployment: Azure Static Web Apps + Docker
 
