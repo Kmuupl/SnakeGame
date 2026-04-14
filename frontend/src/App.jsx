@@ -9,12 +9,11 @@ const SnakeGame = () => {
   const CELL_SIZE = CANVAS_SIZE / GRID_SIZE;
   const GAME_SPEED = 100;
 
+  const directionRef = useRef([1, 0]);
   const [gameState, setGameState] = useState('registration');
   const [playerName, setPlayerName] = useState('');
   const [snake, setSnake] = useState([[10, 10]]);
   const [food, setFood] = useState([15, 15]);
-  const [direction, setDirection] = useState([1, 0]);
-  const [nextDirection, setNextDirection] = useState([1, 0]);
   const [score, setScore] = useState(0);
   const [leaderboard, setLeaderboard] = useState([]);
   const canvasRef = useRef(null);
@@ -34,15 +33,28 @@ const SnakeGame = () => {
     }
   };
 
+  const loadLeaderboard = () => {
+    fetch("https://snakegame-api-fefxc8b8bcguajd0.polandcentral-01.azurewebsites.net/api/scores")
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('Failed to fetch leaderboard');
+        }
+        return res.json();
+      })
+      .then(data => {
+        const sorted = data.sort((a, b) => b.score - a.score);
+        setLeaderboard(sorted);
+      })
+      .catch(err => console.log(err));
+  };
 
-  // Загрузка лидербордо
+
+  // Загрузка лидерборда при монтировании компонента
   useEffect(() => {
-    const scores = JSON.parse(localStorage.getItem('snakeScores')) || [];
-    if (scores.length > 0) {
-      setLeaderboard(scores.slice(0, 10));
-    }
+    loadLeaderboard();
+    const interval = setInterval(loadLeaderboard, 10000);
+    return () => clearInterval(interval);
   }, []);
-
 
   // Фиксируем body при игре
   useEffect(() => {
@@ -80,14 +92,17 @@ const SnakeGame = () => {
       };
 
       const newDir = keyMap[e.key];
-      if (newDir && !(direction[0] === -newDir[0] && direction[1] === -newDir[1])) {
-        setNextDirection(newDir);
+      if (newDir &&
+        !(directionRef.current[0] === -newDir[0] &&
+          directionRef.current[1] === -newDir[1])
+      ) {
+        directionRef.current = newDir;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [direction, gameState]);
+  }, [gameState]);
 
   // Свайпы
   const handleTouchStart = (e) => {
@@ -110,8 +125,8 @@ const SnakeGame = () => {
         newDir = deltaY > 0 ? [0, 1] : [0, -1];
       }
 
-      if (!(direction[0] === -newDir[0] && direction[1] === -newDir[1])) {
-        setNextDirection(newDir);
+      if (!(directionRef.current[0] === -newDir[0] && directionRef.current[1] === -newDir[1])) {
+        directionRef.current = newDir;
       }
     }
   };
@@ -120,20 +135,25 @@ const SnakeGame = () => {
   useEffect(() => {
     if (gameState !== 'playing') return;
 
-    gameLoopRef.current = setInterval(() => {
+    const interval = setInterval(() => {
       setSnake((prevSnake) => {
-        setDirection(nextDirection);
         const head = [...prevSnake[0]];
-        head[0] += nextDirection[0];
-        head[1] += nextDirection[1];
 
-        if (head[0] < 0 || head[0] >= GRID_SIZE || head[1] < 0 || head[1] >= GRID_SIZE) {
+        head[0] += directionRef.current[0];
+        head[1] += directionRef.current[1];
+
+        // wall collision
+        if (
+          head[0] < 0 || head[0] >= GRID_SIZE ||
+          head[1] < 0 || head[1] >= GRID_SIZE
+        ) {
           playSound('gameover');
           setGameState('gameOver');
           return prevSnake;
         }
 
-        if (prevSnake.some((segment) => segment[0] === head[0] && segment[1] === head[1])) {
+        // self collision
+        if (prevSnake.some(seg => seg[0] === head[0] && seg[1] === head[1])) {
           playSound('gameover');
           setGameState('gameOver');
           return prevSnake;
@@ -141,13 +161,23 @@ const SnakeGame = () => {
 
         const newSnake = [head, ...prevSnake];
 
+        // eat food
         if (head[0] === food[0] && head[1] === food[1]) {
-          setScore((s) => s + 10);
+          setScore(s => s + 10);
           playSound('eat');
+
           let newFood;
           do {
-            newFood = [Math.floor(Math.random() * GRID_SIZE), Math.floor(Math.random() * GRID_SIZE)];
-          } while (newSnake.some((segment) => segment[0] === newFood[0] && segment[1] === newFood[1]));
+            newFood = [
+              Math.floor(Math.random() * GRID_SIZE),
+              Math.floor(Math.random() * GRID_SIZE),
+            ];
+          } while (
+            newSnake.some(
+              seg => seg[0] === newFood[0] && seg[1] === newFood[1]
+            )
+          );
+
           setFood(newFood);
           return newSnake;
         }
@@ -156,15 +186,17 @@ const SnakeGame = () => {
       });
     }, GAME_SPEED);
 
-    return () => clearInterval(gameLoopRef.current);
-  }, [gameState, nextDirection, food]);
+    return () => clearInterval(interval);
+  }, [gameState, food]);
 
   // Рисование Canvas
   useEffect(() => {
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
     ctx.fillStyle = '#efd7fe';
     ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
@@ -202,28 +234,35 @@ const SnakeGame = () => {
     setGameState('playing');
     setSnake([[10, 10]]);
     setFood([15, 15]);
-    setDirection([1, 0]);
-    setNextDirection([1, 0]);
+    directionRef.current = [1, 0];
     setScore(0);
   };
 
-  const resetGame = () => {
-    if (playerName.trim()) {
-      const scores = JSON.parse(localStorage.getItem('snakeScores')) || [];
-      scores.push({ name: playerName, score, rank: scores.length + 1 });
-      scores.sort((a, b) => b.score - a.score);
+  const resetGame = async () => {
+    if (playerName.trim() && score > 0) {
+      try {
+        await fetch("https://snakegame-api-fefxc8b8bcguajd0.polandcentral-01.azurewebsites.net/api/scores", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            playerName,
+            score
+          })
+        });
 
-      scores.forEach((s, i) => s.rank = i + 1);
+        await loadLeaderboard(); // 👈 только так
 
-      localStorage.setItem('snakeScores', JSON.stringify(scores));
-      setLeaderboard(scores.slice(0, 10));
+      } catch (err) {
+        console.log("Save score error:", err);
+      }
     }
 
     setGameState('playing');
     setSnake([[10, 10]]);
     setFood([15, 15]);
-    setDirection([1, 0]);
-    setNextDirection([1, 0]);
+    directionRef.current = [1, 0];
     setScore(0);
   };
 
