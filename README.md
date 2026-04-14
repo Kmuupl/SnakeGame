@@ -74,4 +74,3 @@ npm run build
 
 ## License
 MIT
-* 💼 версию “для резюме”, которая выглядит как production SaaS проект
