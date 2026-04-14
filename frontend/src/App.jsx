@@ -390,8 +390,8 @@ const SnakeGame = () => {
                 </h3>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {leaderboard.slice(0, 5).map((entry) => (
-                  <div key={entry.rank} style={{
+                {leaderboard.slice(0, 5).map((entry, index) => (
+                  <div key={entry.id} style={{
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -399,9 +399,17 @@ const SnakeGame = () => {
                     borderBottom: '1px solid rgba(207, 155, 213, 0.3)',
                     fontSize: '14px',
                   }}>
-                    <span style={{ color: '#69a1b3', fontWeight: '600' }}>#{entry.rank}</span>
-                    <span style={{ color: '#406832', flex: 1, marginLeft: '12px' }}>{entry.name}</span>
-                    <span style={{ color: '#a71255', fontWeight: '700' }}>{entry.score}</span>
+                    <span style={{ color: '#69a1b3', fontWeight: '600' }}>
+                      #{index + 1}
+                    </span>
+
+                    <span style={{ color: '#406832', flex: 1, marginLeft: '12px' }}>
+                      {entry.playerName}
+                    </span>
+
+                    <span style={{ color: '#a71255', fontWeight: '700' }}>
+                      {entry.score}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -604,18 +612,26 @@ const SnakeGame = () => {
                   <Trophy size={16} /> Top Scores
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {leaderboard.slice(0, 5).map((entry) => (
-                    <div key={entry.rank} style={{
+                  {leaderboard.slice(0, 5).map((entry, index) => (
+                    <div key={entry.id} style={{
                       display: 'flex',
                       justifyContent: 'space-between',
                       padding: '6px 8px',
                       fontSize: '13px',
                       borderRadius: '6px',
-                      backgroundColor: entry.rank === 1 ? 'rgba(167, 18, 85, 0.1)' : 'transparent',
+                      backgroundColor: index === 0 ? 'rgba(167, 18, 85, 0.1)' : 'transparent',
                     }}>
-                      <span style={{ color: '#69a1b3', fontWeight: '600', minWidth: '24px' }}>#{entry.rank}</span>
-                      <span style={{ color: '#406832', flex: 1, marginLeft: '8px' }}>{entry.name}</span>
-                      <span style={{ color: '#a71255', fontWeight: '700' }}>{entry.score}</span>
+                      <span style={{ color: '#69a1b3', fontWeight: '600', minWidth: '24px' }}>
+                        #{index + 1}
+                      </span>
+
+                      <span style={{ color: '#406832', flex: 1, marginLeft: '8px' }}>
+                        {entry.playerName}
+                      </span>
+
+                      <span style={{ color: '#a71255', fontWeight: '700' }}>
+                        {entry.score}
+                      </span>
                     </div>
                   ))}
                 </div>
